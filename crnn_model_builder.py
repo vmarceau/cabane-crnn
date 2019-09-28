@@ -1,15 +1,15 @@
 import tensorflow as tf
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, List
 
 
-def ctc_batch_cost(args: Any) -> Any:
+def ctc_batch_cost(args: List[tf.Tensor]) -> tf.Tensor:
     y_pred, labels, input_length, label_length = args
     shift = 2
     y_pred = y_pred[:, shift:, :]
     return tf.keras.backend.ctc_batch_cost(labels, y_pred, input_length, label_length)
 
 
-def stack_last_axes(x: Any) -> Any:
+def stack_last_axes(x: tf.Tensor) -> tf.Tensor:
     old_shape = tf.keras.backend.int_shape(x)
     new_shape = [-1, old_shape[1], old_shape[2] * old_shape[3]]
     y = tf.reshape(x, new_shape)
@@ -46,7 +46,7 @@ class CRNNModelBuilder:
 
         return tf.keras.models.Model(inputs=model_inputs, outputs=model_outputs)
 
-    def _build_cnn(self, x: Any) -> Any:
+    def _build_cnn(self, x: tf.Tensor) -> tf.Tensor:
         for i, (depth, n_convs, kernel_size, pool_size) in enumerate(
             zip(self._cnn_num_features, self._cnn_convs_per_pool, self._cnn_kernel_sizes, self._cnn_pool_sizes)
         ):
@@ -59,12 +59,12 @@ class CRNNModelBuilder:
 
         return x
 
-    def _build_cnn_to_rnn_transition(self, x: Any) -> Any:
+    def _build_cnn_to_rnn_transition(self, x: tf.Tensor) -> tf.Tensor:
         x = tf.keras.layers.Lambda(stack_last_axes, name='reshape')(x)
         x = tf.keras.layers.Dense(self._rnn_input_features, activation='relu', name='rnn_input')(x)
         return x
 
-    def _build_rnn(self, x: Any, num_classes: int) -> Any:
+    def _build_rnn(self, x: tf.Tensor, num_classes: int) -> tf.Tensor:
         for i, n_units in enumerate(self._rnn_hidden_units):
             if self._rnn_type.lower() == 'lstm':
                 rnn1 = tf.keras.layers.LSTM(
@@ -108,8 +108,8 @@ class CRNNModelBuilder:
         return x
 
     def _build_inputs_and_outputs(
-        self, image_input: Any, softmax_output: Any, max_sequence_length: int, training: bool
-    ) -> Tuple[Any, Any]:
+        self, image_input: tf.Tensor, softmax_output: tf.Tensor, max_sequence_length: int, training: bool
+    ) -> Tuple[List[tf.Tensor], tf.Tensor]:
         input_labels = tf.keras.layers.Input(name='input_labels', shape=[max_sequence_length], dtype='float32')
         input_length = tf.keras.layers.Input(name='input_length', shape=[1], dtype='int64')
         label_length = tf.keras.layers.Input(name='label_length', shape=[1], dtype='int64')
